@@ -2,7 +2,15 @@
 
 library(tidyverse)
 library(lubridate)
-library(FNGr) # devtools::install_github("ben-williams/FNGr")
+library(mgcViz)
+library(funcr) # devtools::install_github("ben-williams/FNGr")
 library(mgcv)
 library(readxl)
-theme_set(theme_sleek())
+library(ggridges)
+library(EnvStats)
+theme_set(theme_report())
+library(PBSmapping)
+data("nepacLL")
+nepacLL %>% 
+  dplyr::select(group=PID, POS=POS, long=X, lat=Y) -> ak_map
+
