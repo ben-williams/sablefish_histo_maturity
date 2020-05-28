@@ -1,0 +1,482 @@
+---
+title: "Coastwide Sablefish Maturity"
+author: "Ben Williams, Cara Rodgveller, Melissa Head"
+date: "2020-04-28"
+output: 
+  beamer_presentation:
+    colortheme: "seahorse"
+    fonttheme: "structurebold"
+header-includes:
+  - \setbeameroption{show notes}  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
+```
+
+
+```{r}
+source(here::here("code/helper.r"))
+theme_set(theme_present())
+```
+
+```{r, eval = T}
+
+# data ----
+
+read_csv(here::here("output/all.csv")) -> all
+
+# update breakpoints
+# all %>%
+#   mutate(Breaks2 = factor(case_when(lat<=36 ~ "R1",
+#                              lat>36 & lat <=50 ~ "R2",
+#                              lat>50 & long>= -145 ~ "R3",
+#                              long< -145 ~ "R4")),
+#          Age = factor(Age),
+#          Breaks = factor(Breaks)) %>%
+#   write_csv("output/all.csv")
+
+```
+## Goal
+
+
+Provide maturity-at-age for a suite of potential OMs
+
+## Current status
+
+```{r}
+tibble(age = 0:20) %>% 
+  mutate(bc = age^8/(age^8 + 5^8),
+         ak = exp(-6.6 + .84 * age) / (1 + exp(-6.6 + .84 * age)),
+         ak_s = exp(-5.7857 + 0.7938 * age) / (1 + exp(-5.7857 + 0.7938 * age)),
+         wa_or = exp(-6.03 + 1.228 * age) / (1 + exp(-6.03 + 1.228 * age)),
+         c_ca = exp(-2.15 + .274 * age) / (1 + exp(-2.15 + .274 * age)),
+         s_ca = exp(-1.78 + .162 * age) / (1 + exp(-1.78 + .162 * age))) %>% 
+  pivot_longer(-age, names_to = "location") %>% 
+  mutate(location = factor(location, levels = c("ak", "ak_s", "bc", "wa_or", "c_ca", "s_ca"))) %>% 
+  ggplot(aes(age, value, color = location)) + 
+  geom_line(size = 2) + 
+  scale_color_viridis_d(end = .95) + 
+  geom_hline(yintercept = 0.5, lty = 3) +
+  scale_x_continuous(breaks = tickr(data.frame(age = 1:20), age, 2, start = 0)$breaks,
+                     labels = tickr(data.frame(age = 1:20), age, 2, start = 0)$labels) + 
+  theme(legend.position = c(0.8, 0.2)) + 
+  ylab("Proportion mature") + 
+  xlab("Age") + 
+  annotate("text", x = 10, y = .01, label = "Cox et al. 2009, Head et al. 2014, Sasaki 1985") + 
+    ggtitle(bquote("Maturity-at-age:  A"[50]== " 7.85, 7.2, 5, 4.9, 7.86, 11")) 
+
+```
+
+\note{
+some of these are conversions from length to age - simply using for comparison
+}
+
+## Exploratory data analysis - histology
+
+```{r age-ss, out.width = "290px"}
+
+knitr::include_graphics(here::here("figs/age_sample.png"))
+```
+
+
+## Exploratory data analysis - histology
+
+```{r length-ss, out.width = "290px"}
+
+knitr::include_graphics(here::here("figs/length_sample.png"))
+```
+
+## Exploratory data analysis - histology
+
+```{r eda-lw, out.width = "240px"}
+
+knitr::include_graphics(here::here("figs/eda_lw.png"))
+```
+
+## Exploratory data analysis - histology
+
+```{r eda-vonb, out.width = "240px"}
+
+knitr::include_graphics(here::here("figs/eda_vonb.png"))
+```
+
+## Exploratory data analysis - histology
+
+```{r eda-locs, out.width = "290px"}
+
+knitr::include_graphics(here::here("figs/eda_locs.png"))
+```
+
+## Basic model - histological only
+
+$Mature ~\sim ~ age$
+
+```{r basic, eval = T}
+all %>% 
+  data.frame() %>% 
+  filter(Location %in% c("AK", "WC")) -> df
+
+fit0 <- glm(Mature~age, data = df, 
+            family = 'binomial')
+
+fit1 <- glm(Mature~age, data = all, 
+            family = 'binomial')
+
+fit1.1 <- gam(Mature~ s(length, by = Age, k=4) + s(age, k= 4) + Location + s(depth, k=4), 
+              data = df, family = 'binomial', gamma = 1.4)
+
+m0 = predict(fit0, data.frame(age = 1:20), type = "response", se = T)
+m1 = predict(fit1, data.frame(age = 1:20), type = "response", se = T)
+
+df %>% group_by(Location, age) %>% summarise(length = median(length)) -> lngs
+# 
+# expand.grid(age = seq(6.97,7.1,.001), 
+#             Location = c("AK","WC"),
+#             depth = 600) %>% 
+#   mutate(
+#          age = floor(age),
+#          Age = factor(age)) %>% 
+#   left_join(lngs) %>% 
+#   mutate(age = rep(seq(6.97,7.1,.001),2),
+#          Age = factor(Age)) %>% 
+#   mutate(fit = predict(fit1.1, ., type = "response")) %>% 
+#   filter(Location == "AK")
+#   ggplot(aes(age, fit, color = Location)) + 
+#   geom_line()
+
+expand.grid(age = 1:20) %>% 
+  mutate(hist = m0$fit,
+         ll = m0$fit - 1.96 * m0$se.fit,
+         ul = m0$fit + 1.96 * m0$se.fit) %>% 
+  mutate(model = "hist") %>% 
+  ggplot(aes(age, hist, color = model, fill = model, group = model)) + 
+  geom_ribbon(aes(ymin = ll, ymax = ul, group = model), alpha = .2, color = NA) +
+  geom_line(size=2) +
+  scale_x_continuous(breaks = funcr::tickr(tibble(age = 1:20), age, start = 0)$breaks,
+                     labels = funcr::tickr(tibble(age = 1:20), age, start = 0)$labels) + 
+  scale_color_viridis_d(end=.75) +
+  scale_fill_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) + 
+  theme(legend.position = c(0.8, 0.2)) + 
+  ylab("Proportion mature") + 
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "6.96"))
+```
+
+## Basic model - histological & macroscopic
+
+fit1 = $Mature ~\sim ~ age$
+
+```{r, eval = T}
+
+expand.grid(age = 1:20) %>% 
+  mutate(hist = m0$fit,
+         hist_macro = m1$fit,
+         ll_hist = m0$fit - 1.96 * m0$se.fit,
+         ul_hist = m0$fit + 1.96 * m0$se.fit,
+         ll_hm = m1$fit - 1.96 * m1$se.fit,
+         ul_hm = m1$fit + 1.96 * m1$se.fit) %>% 
+  pivot_longer(cols = c(hist, hist_macro),  "model") %>%
+  mutate(ll = case_when(model == "hist" ~ ll_hist, 
+                        model == "hist_hm" ~ ll_hm),
+         ul = case_when(model == "hist" ~ ul_hist, 
+                        model == "hist_hm" ~ ul_hm)) %>% 
+  ggplot(aes(age, value, color = model, fill = model, group = model)) + 
+  geom_ribbon(aes(ymin = ll, ymax = ul, group = model), alpha = .2, color = NA) +
+  geom_line(size=2) +
+  scale_x_continuous(breaks = funcr::tickr(tibble(age = 1:20), age, start = 0)$breaks,
+                     labels = funcr::tickr(tibble(age = 1:20), age, start = 0)$labels) + 
+  scale_color_viridis_d(end=.75) +
+  scale_fill_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) + 
+  theme(legend.position = c(0.8, 0.2)) + 
+  ylab("Proportion mature") + 
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "6.4, 6.96"))
+```
+
+\note{
+dfo data 2010-2017; excluded earlier years deemed unreliable
+ak-state macro data 1988-2019
+}
+
+## Basic model - Location
+
+fit2 = $Mature ~\sim ~age * Location$
+
+```{r, eval = T}
+fit2 <- glm(Mature~age * Location, data = all, 
+            family = 'binomial')
+
+expand.grid(age = 1:20,
+            Location = factor(unique(all$Location))) %>% 
+  mutate(fit2 = predict(fit2, ., type = "response")) %>% 
+  ggplot(aes(age, fit2,color = Location)) + 
+  geom_line(size=2) + 
+  scale_color_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) + 
+  theme(legend.position = c(0.8, 0.2)) + 
+  ylab("Proportion mature") + 
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "7.3, 6.6, 6.3, 6")) 
+# (5.78560-2.35248) / (.79376-0.24659)
+
+```
+
+\note{
+looking at these data on the management/region scale
+}
+
+## Basic model - Breaks
+
+```{r, out.width = "240px"}
+knitr::include_graphics(here::here("figs/breaks.png"))
+```
+
+\note{
+These are the breaks from Kapur et al. 2020 based upon lengths
+They used the first derivative of a gam
+I tried to replicate with maturity information, but found the data too limited
+Region 1-5 are code as A-E
+}
+## Basic model - Breaks
+
+fit3 = $Mature ~\sim ~ age * Breaks$
+
+```{r, eval = T}
+fit3 <- glm(Mature~age * Breaks, data = all, 
+            family = 'binomial')
+
+expand.grid(age = 1:20,
+            Breaks = factor(unique(all$Breaks))) %>% 
+  mutate(fit3 = predict(fit3, ., type = "response")) %>% 
+  ggplot(aes(age, fit3, color = Breaks)) + 
+  geom_line(size=2) + 
+  scale_color_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) + 
+  theme(legend.position = c(0.8, 0.2)) + 
+  ylab("Proportion mature") + 
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "10.4, 6, 6.2, 6.3, 7.3")) 
+# (3.54403715+2.24162306) / (0.34118154+0.45257866)
+
+```
+
+
+```{r, out.width = "240px", eval = F}
+knitr::include_graphics(here::here("figs/breaks_lab.png"))
+```
+
+## GAM - Breaks
+
+fit4 = $Mature ~\sim ~ s(length, by = Age) + s(age) + Breaks$
+
+```{r, eval = T}
+fit4 <- gam(Mature~ s(length, by = Age, k=4) + s(age, k= 4) + Breaks, data = all, family = 'binomial', gamma = 1.4)
+# saveRDS(fit4, here::here("models/fit4.rds"))
+fit4 <- readRDS(here::here("models/fit4.rds"))
+
+expand.grid(age = 1:20,
+            Breaks = factor(unique(all$Breaks))) %>%
+  mutate(Age = factor(round(age)),
+         length = case_when(Breaks == "A" ~ 62.86 * (1 - exp(-0.16 * (age - -4.31))),
+                            Breaks == "B" ~ 64.85 * (1 - exp(-0.34 * (age - -1.45))),
+                            Breaks == "C" ~ 71.62 * (1 - exp(-0.34 * (age - -1.51))),
+                            Breaks == "D" ~ 77.63 * (1 - exp(-0.20 * (age - -3.51))),
+                            Breaks == "E" ~ 81.61 * (1 - exp(-0.14 * (age - -4.85))))) %>% 
+   mutate(fit4 = predict(fit4, ., type = "response")) %>%
+  ggplot(aes(age, fit4, color = Breaks)) +
+  geom_line(size=2) +
+  scale_color_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) +
+  theme(legend.position = c(0.8, 0.2)) +
+  ylab("Proportion mature") +
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "10, 6, 5.4, 5.4, 6.7"))
+
+  # geom_vline(xintercept = c(5.35, 6, 6.7, 10))
+
+```
+
+## GAM - Breaks/depth
+
+fit5 = $Mature ~\sim ~ s(length, by=Age) + s(depth) + s(age) + Breaks$
+
+```{r, eval = T}
+# fit5 <- gam(Mature~ s(length, by = Age, k=4) + s(depth, k=4) + s(age, k=4) + Breaks, data = all, family = 'binomial', gamma = 1.4)
+# saveRDS(fit5, here::here("models/fit5.rds"))
+fit5 <- readRDS(here::here("models/fit5.rds"))
+
+expand.grid(age = 1:20,
+            depth = 600,
+            Breaks = factor(unique(all$Breaks))) %>% 
+  mutate(Age = factor(round(age)),
+         length = case_when(Breaks == "A" ~ 62.86 * (1 - exp(-0.16 * (age - -4.31))),
+                            Breaks == "B" ~ 64.85 * (1 - exp(-0.34 * (age - -1.45))),
+                            Breaks == "C" ~ 71.62 * (1 - exp(-0.34 * (age - -1.51))),
+                            Breaks == "D" ~ 77.63 * (1 - exp(-0.20 * (age - -3.51))),
+                            Breaks == "E" ~ 81.61 * (1 - exp(-0.14 * (age - -4.85))))) %>% 
+  mutate(fit5 = predict(fit5, ., type = "response")) %>% 
+  # filter(Breaks %in% c("E")) %>%
+  #  filter(fit5>.49 & fit5<.51) %>%
+  # arrange(Breaks)
+  ggplot(aes(age, fit5, color = Breaks)) +
+  geom_line(size=2) +
+  scale_color_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) +
+  theme(legend.position = c(0.8, 0.2)) +
+  ylab("Proportion mature") +
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "10.0, 5.5, 4.8, 5.5, 6.5"))  
+  # geom_vline(xintercept = c(10.3, 5.8, 5, 5.4, 6.5))
+
+```
+
+## GAM - Breaks/depth/location
+
+fit6 = $Mature ~\sim ~ s(length, by=Age) + s(depth) + s(age) + te(location) + Breaks$
+
+```{r, eval = T}
+# fit6 <- gam(Mature~ s(length, by = Age, k=4) + s(depth, k=4) + s(age, k=4) + te(long, lat) + Breaks, data = all, family = 'binomial', gamma = 1.4)
+# saveRDS(fit6, here::here("models/fit6.rds"))
+fit6 <- readRDS(here::here("models/fit6.rds"))
+
+all %>% 
+  group_by(Breaks) %>% 
+  summarise(long = median(long, na.rm = T),
+            lat = median(lat, na.rm = T)) -> locs
+
+expand.grid(age = 1:20,
+            depth = 600,
+            Breaks = factor(unique(all$Breaks))) %>%
+  mutate(Age = factor(round(age)),
+         length = case_when(Breaks == "A" ~ 62.86 * (1 - exp(-0.16 * (age - -4.31))),
+                            Breaks == "B" ~ 64.85 * (1 - exp(-0.34 * (age - -1.45))),
+                            Breaks == "C" ~ 71.62 * (1 - exp(-0.34 * (age - -1.51))),
+                            Breaks == "D" ~ 77.63 * (1 - exp(-0.20 * (age - -3.51))),
+                            Breaks == "E" ~ 81.61 * (1 - exp(-0.14 * (age - -4.85))))) %>% 
+  left_join(locs) %>% 
+  mutate(fit6 = predict(fit6, ., type = "response")) %>%
+  # filter(fit6>.48 & fit6<.52, Breaks %in%c("C")) %>%
+  # arrange(Breaks)
+  ggplot(aes(age, fit6, color = Breaks)) +
+  geom_line(size=2) +
+  scale_color_viridis_d(end=.75) +
+  geom_hline(yintercept = 0.5, lty = 3) +
+  theme(legend.position = c(0.8, 0.2)) +
+  ylab("Proportion mature") +
+  xlab("Age") +
+  ggtitle(bquote("A"[50]== "10.1, 5.5, 4.5, 5.2, 6.3"))  
+  # geom_vline(xintercept = c(10.1, 5.5, 4.5, 5.2, 6.3))
+
+```
+
+
+
+
+## AIC 
+
+```{r}
+
+AIC(fit1, fit2, fit3, fit4, fit5, fit6) %>% 
+  rownames_to_column("model") %>% 
+  mutate(delta = AIC - min(AIC)) %>% 
+  left_join(data.frame(model = c("fit1", "fit2", "fit3", "fit4", "fit5", "fit6"),
+                       dev_explained = c(38.3, 39.9, 39.2, 60, 60.4, 61.1))) %>% 
+  arrange(delta) %>% 
+  mutate_if(is.numeric, round, 1) %>% 
+  knitr::kable()
+
+```
+
+## General Observations
+
+ - "dome" shaped maturity-at-age across the range  
+ - WA/BC appear as "hot spot"  
+ - depth effect is relevant (observed in other analyses)
+ - rather limited data
+
+
+Potential explorations 
+
+ - obs are not scaled to biomass
+ - gulf-wide directed maturity study (NPRB)
+ 
+ 
+ 
+## OM Scenarios - 1 Panmictic maturity
+
+
+A50 $\sim$ 6.5
+
+**Not recommended**
+
+## OM Scenarios - 2 AK/WC maturity split (BC=?)
+
+AK $\sim$ 7  
+WC $\sim$ 6
+
+**Not preferred**
+
+## OM Scenarios - 3 Management Regions
+
+AK $\sim$ 7.3  
+AK-state $\sim$ 6.6  
+BC $\sim$ 6.3  
+WC $\sim$ 6  
+
+**Not preferred - workable w/mods**
+
+## OM Scenarios - 4 Length Breaks
+
+A $\sim$ S_CA $\sim$ 10    
+B $\sim$ WC  $\sim$ 6  
+C/D $\sim$ BC/SEAK $\sim$ 5.4  
+E $\sim$ AK $\sim$ 6.7  
+
+**preferred - or one of the variants (include depth, etc)**
+
+
+```{r}
+
+source(here::here("code/helper.r"))
+theme_set(theme_report())
+fit3a <- readRDS(here::here("models/fit3a.rds"))
+fit4a <- readRDS(here::here("models/fit4a.rds"))
+fit5a <- readRDS(here::here("models/fit5a.rds"))
+fit6a <- readRDS(here::here("models/fit6a.rds"))
+
+all %>% 
+  group_by(Breaks2) %>% 
+  summarise(long = median(long, na.rm = T),
+            lat = median(lat, na.rm = T)) -> locs
+
+expand.grid(age = 1:20,
+            depth = 600,
+            Breaks2 = factor(unique(all$Breaks2))) %>%
+  mutate(Age = factor(round(age)),
+         length = case_when(Breaks2 == "R1" ~ 62.86 * (1 - exp(-0.16 * (age - -4.31))),
+                            Breaks2 == "R2" ~ 64.85 * (1 - exp(-0.34 * (age - -1.45))),
+                            Breaks2 == "R3" ~ 71.62 * (1 - exp(-0.34 * (age - -1.51))),
+                            Breaks2 == "R4" ~ 81.61 * (1 - exp(-0.14 * (age - -4.85))))) %>% 
+  left_join(locs) %>% 
+  mutate(fit3 = predict(fit3a, ., type = "response"),
+         fit4 = predict(fit4a, ., type = "response"),
+         fit5 = predict(fit5a, ., type = "response"),
+         fit6 = predict(fit6a, ., type = "response")) %>%
+  pivot_longer(cols = c(fit3, fit4, fit5, fit6),
+               names_to = "model") %>% 
+  ggplot(aes(age, value, color = Breaks2)) + 
+  geom_line(size = 2) + 
+  facet_wrap(~model) + 
+  geom_hline(yintercept = 0.5, lty = 3, alpha = 0.5) + 
+  scale_color_viridis_d(end=.75) +
+  theme(legend.position = c(0.9, 0.2)) +
+  ylab("Proportion mature") +
+  xlab("Age") + 
+  geom_vline(xintercept = c(10.1, 5.6, 5.0, 6.1), alpha = 0.3, lty = 3)
+  
+  
+
+```

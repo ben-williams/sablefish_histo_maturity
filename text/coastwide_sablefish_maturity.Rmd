@@ -1,0 +1,206 @@
+---
+title: "Coastwide sablefish maturity examination"
+date: "6/27/2019"
+author: |
+  | Benjamin Williams$^1$, Cara Rodgveller$^2$, Melissa Head$^3$ 
+  | $^1$Alaska Department of Fish and Game, Division of Commercial Fisheries, Juneau, Alaska  
+  | $^2$NOAA AFSC Juneau, AK
+  | $^3$NOAA PSC Seattle, WA
+
+bibliography: "references.bib"
+csl: "canjfas.csl"
+
+output:
+  bookdown::pdf_document2:
+    toc: true
+    
+# These are LaTex settings to take care of floating figures/tables, line spacing, etc
+header-includes:
+#  - \usepackage{setspace}\doublespacing
+#  - \usepackage{lineno}
+#  - \linenumbers
+  - \usepackage{pdflscape}
+  - \usepackage{fullpage}  
+  - \usepackage{float}
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, error=FALSE, warning=FALSE, fig.pos = 'H')
+```
+
+```{r load}
+library(here)
+library(broom)
+library(knitr)
+```
+
+# Background  
+
+
+# Methods  
+
+## Sample collection  
+
+Ovary samples were collected from Alaska waters in 2011 and 2015 and from Washington, Oregon, and California waters in 2011, 2015, 2016, and 2018. 
+
+Metrics:  
+ - length  
+ - weight  
+ - otolith (age)  
+ - macroscopic maturity estimate  
+ - histological maturity estimate  
+ - location (lat, long)  
+ - depth  
+ - date  
+ 
+
+## Sample size 
+
+## Histology 
+
+## Analysis
+
+### Exploratory data analysis
+
+```{r age-ss, fig.cap = "Sablefish histological maturity status by age and year for each region. Sample sizes are listed for each year and region."}
+
+knitr::include_graphics(here::here("figs/age_sample.png"))
+```
+
+```{r length-ss, fig.cap = "Sablefish histological maturity status by length and year for each region. Sample sizes are listed for each year and region."}
+
+knitr::include_graphics(here::here("figs/length_sample.png"))
+```
+
+```{r eda-lw, fig.cap = "Log length-weight relationships for samplefish used in maturity analysis by region."}
+
+knitr::include_graphics(here::here("figs/eda_lw.png"))
+```
+
+```{r eda-vonb, fig.cap = "Sablefish vonBertalanffy growth curves for data used to determine maturity status, by region."}
+
+knitr::include_graphics(here::here("figs/eda_vonb.png"))
+```
+
+
+```{r eda-locs, fig.cap = "Coastwide sablefish maturity sample locations by year."}
+
+knitr::include_graphics(here::here("figs/eda_locs.png"))
+```
+
+```{r eda-age-ss, fig.cap = "Sablefish samples sizes by age class for maturity status determination, by region."}
+
+knitr::include_graphics(here::here("figs/eda_age_ss.png"))
+```
+
+```{r eda-length-ss, fig.cap = "Sablefish samples sizes by length (cm) for maturity status determination, by region."}
+
+knitr::include_graphics(here::here("figs/eda_length_ss.png"))
+```
+
+```{r eda-depth-ss, fig.cap = "Sablefish samples sizes by depth (m) for maturity status determination, by region."}
+
+knitr::include_graphics(here::here("figs/eda_depth_ss.png"))
+```
+
+```{r eda-depth-length, fig.cap = "Sablefish length (cm) at depth by region."}
+
+knitr::include_graphics(here::here("figs/eda_depth_length.png"))
+```
+
+```{r eda-lat-age, fig.cap = "Sablefish age by latitude by region."}
+
+knitr::include_graphics(here::here("figs/eda_lat_age.png"))
+```
+
+```{r eda-long-age, fig.cap = "Sablefish age by longitude by region."}
+
+knitr::include_graphics(here::here("figs/eda_long_age.png"))
+```
+
+Note that figures 9-11 are only representative of the samples collected. 
+If the location of the population as a whole is substantially different then these figures can be highly misleading.
+
+### Maturity models  
+
+Each region (Alaska and west coast) were modeled separately using the following generalized additive model:
+\begin{equation}
+\hat{M_a}=f_1(Length)\cdot Age + f_2(Location) + f_3(depth) + Age + Year + \epsilon. 
+\end{equation}
+
+The "joint" model combined both datasets and had the addition of a "region" variable.
+\begin{equation}
+\hat{M_a}=f_1(Length)\cdot Age + f_2(Location) + f_3(depth) + Age + Year + Region + \epsilon. \end{equation}
+Length, location (lat/long), and depth were included as continuous variables. 
+The "knots" for length and depth were constrained to a maximum of 4. 
+All other variables were included as factors.
+
+#### Model predictions
+
+Prediction data were established so that lengths were binned in two-centimeter increments between 10 and 80 cm and filtered for the minimum and maximum sizes by both age and region. 
+Latitude and longitude were in one-degree increments between the minimum and maximum for each region. 
+Ages 1 through 20 were included in the prediction dataset. Depth was set as the median depth in each location.
+
+Model predictions presented are the mean of the observed response e.g., the proportion mature at length by the mean length at age, mean depth, etc. This differs from the usual presentation of median values for predictions. 
+However, it is unclear what the median location indicates, perhaps the mode would be more informative?
+
+# Results  
+
+Overall the joint model does a reasonably good job of describing the data in hand, with 74.1% of explained deviance (Table 1).
+The joint and seperate models do a similar job of estimating maturity at age and length (Figures 1 & 2).
+
+
+```{r tbl1, comment=NA}
+readRDS(here::here("models/both.rds")) -> bother
+mgcv::summary.gam(bother)
+
+```
+
+```{r reg-age, fig.cap = "Sablefish maturity at age schedules for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_region_age.png"))
+```
+
+```{r reg-length, fig.cap = "Sablefish maturity at length schedules for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_region_length.png"))
+```
+
+```{r depth, fig.cap = "Modeled sablefish maturity at depth for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_depth.png"))
+```
+
+```{r lat, fig.cap = "Modeled sablefish maturity by latitude for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_lat.png"))
+```
+
+```{r long, fig.cap = "Modeled sablefish maturity by longitude for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_long.png"))
+```
+
+```{r ln-age, fig.cap = "Modeled sablefish length at maturity by age for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_length_age.png"))
+```
+
+```{r age-ln, fig.cap = "Modeled sablefish age at maturity maturity by length (2 cm bins) for the joint and seperate models, by region."}
+
+knitr::include_graphics(here::here("figs/mat_age_length.png"))
+```
+
+
+
+# Discussion  
+
+General thoughts: 
+
+ - There are some substantial differences in the sample sizes by location, depth, age, etc. that need to be considered when examining a coastwide model; therfore I utilized generalized additive models as they deal with missing data fairly well.
+ - Given the spatial differences in sablefish maturity, on both coastwide and regional scales, it is imperative to incorporate spatial abundance estimates into the estimated maturity schedule.
+ - Length at maturity is a more precise descriptor (no surprise there).
+ - For the coastwide analysis it would likely be easiest to implement either a strait age at maturity schedule or a von Bertalanffy estimated conditional length at maturity.
+ - It may be desireable to incorporate some of the spatial aspects that are found within each region (not fully detailed here).
+
+# References  
