@@ -241,16 +241,16 @@ dat %>%
   geom_point() +
   geom_line() +
   scale_color_viridis_d() +
-  geom_hline(yintercept = c(0.25, 0.5, 0.75), lty = 3, alpha = 0.5) +
+  geom_hline(yintercept = c(0.25, 0.5, 0.75, 0.95), lty = 3, alpha = 0.5) +
   ggtitle(bquote("A"[50]== "4.6, 6.9, 8.2")) +
-  # coord_cartesian(xlim = c(4,9), ylim = c(0.70, 0.75)) +
-  scale_y_continuous(breaks =seq(0, 1)) +
-  geom_vline(xintercept = c(5.1))
+  # coord_cartesian(xlim = c(4,10.2), ylim = c(0.90, 0.96)) +
+  scale_y_continuous(breaks =seq(0, 1)) 
+  # geom_vline(xintercept = c(10.4))
 
-# perc: 0.25, 0.5, 0.75
-# r1:   7.55, 8.3,  8.7
-# r2:      4, 4.5,  5.1
-# r3:    4.2, 4.6, 4.97
-# r4:   6.05, 6.8,  7.7
+# perc: 0.25, 0.5, 0.75, 0.95  
+# r1:   7.55, 8.3,  8.7, 9.5
+# r2:      4, 4.5,  5.1, 6.5
+# r3:    4.2, 4.6, 4.97, 7.7
+# r4:   6.05, 6.8,  7.7, 10.4
 
 
